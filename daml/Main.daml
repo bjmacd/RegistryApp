@@ -1,0 +1,246 @@
+--
+-- DAML Version of the eCOM Registry to allow Resource Issuers (Publishers) to nominate 
+-- Resource Owners, and for Owners to grant Visibility (Observer) to other parties who
+-- can in-turn request "Access" from the Owner to download the Resourse
+--
+-- Author: Bryce Macdonald
+-- Version: 1.0
+--
+
+{- Questions: 
+  The eCOM Registry allows "Publishers" to Register a Resource as Public or Private.
+  This Module is for Private publishing.  How to make a Register Contract public?
+-} 
+module Main where
+
+import Daml.Script
+import DA.List
+
+type RegisterId = ContractId Register
+type AccessId = ContractId Access
+
+-- For storing Metadata Values
+data KeyValue k v = KeyValue with
+  my_key : k
+  my_val : v
+    deriving (Eq, Show)
+
+-- Register Contracts contain Resource Data
+data Resource = Resource with
+  id : Text                             -- Unique Key of the Resource
+  hash : Text                           -- Resource SHA256 Hash
+  businessObject : Text                 -- Type of Resource (i.e. Order, Invoice, Bill of Lading)
+  contentType : Text                    -- Mime type of the Resource
+  crossReference : Text                 -- Common Reference for the business Object (i.e. Order Number)
+  metadata : [KeyValue Text Text]       -- Additional Key/Value data fror identification and matching
+  references: [Text]                    -- List of related, repeating reference data (i.e. Container Numbers)
+    deriving (Eq, Show)
+
+-- Register Contract Key with Issuer, Owner and Resource ID
+data RegisterKey = RegisterKey with
+  issuer : Party
+  owner : Party
+  id : Text
+    deriving (Eq, Show)
+
+-- Register a Resource.  Issuer can also be the owner, or they can nominate another party as owner
+template Register
+  with
+    issuer : Party
+    owner : Party
+    resource : Resource
+    observers : [Party]
+  where
+    signatory issuer
+    observer owner, observers
+    ensure (unique observers)
+
+    key RegisterKey with
+        issuer
+        owner
+        id = resource.id
+      : RegisterKey
+    maintainer key.issuer
+
+    choice AddRegisterObserver : RegisterId
+      with
+        newObserver : Party
+      controller owner
+      do
+        create this with
+          observers = newObserver :: observers    
+
+    choice DelRegisterObserver : RegisterId
+      with
+        delObserver : Party
+      controller owner
+      do
+        create this with
+          observers = delete delObserver observers  
+-- TEMPLATE_END       
+
+-- Request Access to a Resource (Permission from owner to download from issuer)
+template Access
+  with
+    issuer : Party
+    owner : Party
+    register : RegisterKey    
+    observers : [Party]
+  where
+    signatory issuer, owner
+
+    choice Transfer : AccessId
+      with
+        newOwner : Party
+      controller owner
+      do
+        assertMsg "newOwner cannot be equal to owner." (owner /= newOwner)
+        create this with owner = newOwner   
+
+    choice AddAccessObserver : AccessId
+      with
+        newObserver : Party
+      controller owner
+      do
+        create this with
+          observers = newObserver :: observers              
+-- TEMPLATE_END       
+
+-- Access Proposal
+template AccessProposal
+  with
+    access : Access
+  where
+    signatory access.issuer
+    observer access.owner
+
+    choice AccessProposal_Accept : AccessId
+        controller access.owner
+        do
+          assertMsg "Only Resource owner can accept proposal" (access.owner == access.register.owner)
+          create access
+-- TEMPLATE_END       
+
+setup = script do
+  -- USER_SETUP_BEGIN
+  oneport <- allocatePartyWithHint  "OnePort" (PartyIdHint "OnePort")
+  kerry <- allocatePartyWithHint  "Kerry Logistics" (PartyIdHint "Kerry")
+  velotrade <- allocatePartyWithHint  "Velotrade" (PartyIdHint "Velotrade")
+  boc <- allocatePartyWithHint  "Bank of China" (PartyIdHint "BOC")
+  hsbc <- allocatePartyWithHint  "HSBC" (PartyIdHint "HSBC")
+  
+  oneportId <- validateUserId "oneport"
+  kerryId <- validateUserId "kerry"
+  velotradeId <- validateUserId "velotrade"
+  bocId <- validateUserId "boc"
+  hsbcId <- validateUserId "hsbc"
+
+  createUser (User oneportId (Some oneport)) [CanActAs oneport]
+  createUser (User kerryId (Some kerry)) [CanActAs kerry]
+  createUser (User velotradeId (Some velotrade)) [CanActAs velotrade]
+  createUser (User bocId (Some boc)) [CanActAs boc]
+  createUser (User hsbcId (Some hsbc)) [CanActAs hsbc]
+  -- USER_SETUP_END
+
+  -- OnePort issues a Resource with Kerry Logistics as the Owner.
+  registerResource <- submit oneport do
+    createCmd Register with
+      issuer = oneport
+      owner = kerry
+      resource = Resource with
+        id = "da14ea82-de8c-48d7-8659-0818aeaa44a1"
+        hash = "bcbaa940c094480021a9e20d1b4aff62e016ea03f947e619f62859d6439949e7"
+        businessObject = "Bill of Lading"
+        contentType = "application/json"
+        crossReference = "BL667123-A1"
+        metadata = [(KeyValue "pol" "HKHKG"), 
+                    (KeyValue "pod" "USLAX"), 
+                    (KeyValue "vessel" "COSCO Explorer"), 
+                    (KeyValue "voyage" "320S")]  
+        references = ["EITU0547100", "TGBU7885179", "CAAU5398175"]
+      observers = []
+
+-- OnePort can not add an Observer as Kerry Logistics is the owner
+  submitMustFail oneport do
+    exerciseCmd registerResource AddRegisterObserver with
+      newObserver = velotrade
+
+-- Kerry adds Velotrade as an Observer
+  registerResource <- submit kerry do
+    exerciseCmd registerResource AddRegisterObserver with
+      newObserver = velotrade
+
+-- Kerry can not add Velotrade as an Observer if the are already added
+  submitMustFail kerry do
+    exerciseCmd registerResource AddRegisterObserver with
+      newObserver = velotrade
+
+-- Kerry adds BOC as an Observer
+  registerResource <- submit kerry do
+    exerciseCmd registerResource AddRegisterObserver with
+      newObserver = boc
+
+-- Kerry removes BOC as an Observer
+  registerResource <- submit kerry do
+    exerciseCmd registerResource DelRegisterObserver with
+      delObserver = boc
+
+-- Kerry adds BOC as an Observer Again
+  registerResource <- submit kerry do
+    exerciseCmd registerResource AddRegisterObserver with
+      newObserver = boc
+
+-- BOC requests access to the resource from owner (Kerry)
+  Some register <- queryContractId boc registerResource
+  accessProposal <- submit boc do
+    createCmd AccessProposal with
+      access = Access with
+        issuer = boc
+        owner = kerry
+        register = key register
+        observers = []
+
+{- Questions: 
+  How to test failure when owner != kerry?
+  How to test failure when issuer == hsbc? (Not an observer)
+-}       
+
+-- Only Kerry (Resource owner) can accept an Access Proposal
+  submitMustFail boc do
+    exerciseCmd accessProposal AccessProposal_Accept
+
+  submitMustFail velotrade do
+    exerciseCmd accessProposal AccessProposal_Accept
+    
+  submitMustFail oneport do
+    exerciseCmd accessProposal AccessProposal_Accept
+
+  submitMustFail hsbc do
+    exerciseCmd accessProposal AccessProposal_Accept
+    
+-- Kerry accepts BOC proposal to access resource    
+  accessResource <- submit kerry do
+    exerciseCmd accessProposal AccessProposal_Accept
+
+{- Questions: 
+  How would we record Kerry Rejecting the Access Proposal?
+  How would we record BOC Canceling the Access Proposal?
+-}
+
+-- Kerry Transfers the Access to BOC
+  transferResource <- submit kerry do
+      exerciseCmd accessResource Transfer with
+        newOwner = boc
+
+-- BOC lets Oneport know that they have access to the Resource
+  submit boc do
+      exerciseCmd transferResource AddAccessObserver with
+        newObserver = oneport
+
+{- Questions: 
+  After the Resource Owner (Kerry) has accepted the Access Proposal
+  how do we give visibility to the resource issuer (Oneport) so
+  they know that BOC has been given access?
+-}
+
+-- END_OF_MODULE
