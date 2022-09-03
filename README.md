@@ -18,4 +18,4 @@ This DAML project reproduces the following processes from the eCOM Registry
   5.  The Resource Owner Transfering the "Access" Contract to the Requester
   6.  The Requester adding the Resource Holder as an "Observer" to the "Access" Contract.  This notifies the Resource Holder that the Owner has granted the Requester access to the Resource
   
-This DAML does not cover the Resource "Registration" the the Private Registry, or the downloading of the resource by the Requester from the Holder.
+This DAML does not cover the Resource "Registration" to the Private Registry, or the downloading of the resource by the Requester from the Holder.
