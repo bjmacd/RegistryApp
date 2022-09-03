@@ -2,6 +2,7 @@ DAML Version of the eCOM Registry to allow Resource Issuers (Publishers) to nomi
 can in-turn request "Access" from the Owner to download the Resource
 
 Author: Bryce Macdonald
+
 Version: 1.0
 
 The eCOM Registry is composed of to main components, the "Private Registry" (PR) and the "Shared Registry" (SR).
