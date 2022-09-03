@@ -3,7 +3,7 @@ can in-turn request "Access" from the Owner to download the Resource
 
 The eCOM Registry is composed of two main components, the "Private Registry" (PR) and the "Shared Registry" (SR).
 
-The PR is deployed on-premise and is used by organisations to "Register" Resources (Documents, URLs, Messages, Events) to a Blockchain along with the Hash of the Resource (for data integrity), metadata which describes the Resource and signed by the User and Organisation that holds the Resource.
+The PR is deployed on-premise and is used by organisations to "Register" Resources (Documents, URLs, Messages, Events) to a Blockchain along with the Hash of the Resource (for data integrity), metadata which describes the Resource and signed by the User and Organisation that holds the Resource. The PR acts as the "Off-Chain" Storage for the Resources.
 
 The Resource Holder (Registrar) can choose to "Publish" the Resource metadata to the "Shared Registry" Network either as a Private or Public Resource.  At the time of Publishing, the Resource Holder can set themselves as the Resource Owner or nominate another party on the Network as the Resource Owner. The Published Resource details (Hash, Metadata, Owner, etc.) are recorded on the Blockchain.
 
