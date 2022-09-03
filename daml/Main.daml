@@ -82,12 +82,12 @@ template Publish
 -- Request Access to a Resource (Permission from owner to download from issuer)
 template Access
   with
-    issuer : Party
+    requester : Party
     owner : Party
     publish : PublishKey    
     observers : [Party]
   where
-    signatory issuer, owner
+    signatory requester, owner
 
     choice Transfer : AccessId
       with
@@ -111,7 +111,7 @@ template AccessProposal
   with
     access : Access
   where
-    signatory access.issuer
+    signatory access.requester
     observer access.owner
 
     choice AccessProposal_Accept : AccessId
@@ -195,7 +195,7 @@ setup = script do
   accessProposal <- submit boc do
     createCmd AccessProposal with
       access = Access with
-        issuer = boc
+        requester = boc
         owner = kerry
         publish = key publish
         observers = []
