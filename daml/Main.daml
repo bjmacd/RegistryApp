@@ -8,15 +8,15 @@
 --
 
 {- Questions: 
-  The eCOM Registry allows "Publishers" to Register a Resource as Public or Private.
-  This Module is for Private publishing.  How to make a Register Contract public?
+  The eCOM Registry allows "Publishers" to Publish a Resource as Public or Private.
+  This Module is for Private publishing.  How to make a Publish Contract public?
 -} 
 module Main where
 
 import Daml.Script
 import DA.List
 
-type RegisterId = ContractId Register
+type PublishId = ContractId Publish
 type AccessId = ContractId Access
 
 -- For storing Metadata Values
@@ -25,7 +25,7 @@ data KeyValue k v = KeyValue with
   my_val : v
     deriving (Eq, Show)
 
--- Register Contracts contain Resource Data
+-- Publish Contracts contain Resource Data
 data Resource = Resource with
   id : Text                             -- Unique Key of the Resource
   hash : Text                           -- Resource SHA256 Hash
@@ -36,15 +36,15 @@ data Resource = Resource with
   references: [Text]                    -- List of related, repeating reference data (i.e. Container Numbers)
     deriving (Eq, Show)
 
--- Register Contract Key with Issuer, Owner and Resource ID
-data RegisterKey = RegisterKey with
+-- Publish Contract Key with Issuer, Owner and Resource ID
+data PublishKey = PublishKey with
   issuer : Party
   owner : Party
   id : Text
     deriving (Eq, Show)
 
--- Register a Resource.  Issuer can also be the owner, or they can nominate another party as owner
-template Register
+-- Publish a Resource.  Issuer can also be the owner, or they can nominate another party as owner
+template Publish
   with
     issuer : Party
     owner : Party
@@ -55,14 +55,14 @@ template Register
     observer owner, observers
     ensure (unique observers)
 
-    key RegisterKey with
+    key PublishKey with
         issuer
         owner
         id = resource.id
-      : RegisterKey
+      : PublishKey
     maintainer key.issuer
 
-    choice AddRegisterObserver : RegisterId
+    choice AddPublishObserver : PublishId
       with
         newObserver : Party
       controller owner
@@ -70,7 +70,7 @@ template Register
         create this with
           observers = newObserver :: observers    
 
-    choice DelRegisterObserver : RegisterId
+    choice DelPublishObserver : PublishId
       with
         delObserver : Party
       controller owner
@@ -84,7 +84,7 @@ template Access
   with
     issuer : Party
     owner : Party
-    register : RegisterKey    
+    publish : PublishKey    
     observers : [Party]
   where
     signatory issuer, owner
@@ -117,7 +117,7 @@ template AccessProposal
     choice AccessProposal_Accept : AccessId
         controller access.owner
         do
-          assertMsg "Only Resource owner can accept proposal" (access.owner == access.register.owner)
+          assertMsg "Only Resource owner can accept proposal" (access.owner == access.publish.owner)
           create access
 -- TEMPLATE_END       
 
@@ -143,8 +143,8 @@ setup = script do
   -- USER_SETUP_END
 
   -- OnePort issues a Resource with Kerry Logistics as the Owner.
-  registerResource <- submit oneport do
-    createCmd Register with
+  publishResource <- submit oneport do
+    createCmd Publish with
       issuer = oneport
       owner = kerry
       resource = Resource with
@@ -162,42 +162,42 @@ setup = script do
 
 -- OnePort can not add an Observer as Kerry Logistics is the owner
   submitMustFail oneport do
-    exerciseCmd registerResource AddRegisterObserver with
+    exerciseCmd publishResource AddPublishObserver with
       newObserver = velotrade
 
 -- Kerry adds Velotrade as an Observer
-  registerResource <- submit kerry do
-    exerciseCmd registerResource AddRegisterObserver with
+  publishResource <- submit kerry do
+    exerciseCmd publishResource AddPublishObserver with
       newObserver = velotrade
 
 -- Kerry can not add Velotrade as an Observer if the are already added
   submitMustFail kerry do
-    exerciseCmd registerResource AddRegisterObserver with
+    exerciseCmd publishResource AddPublishObserver with
       newObserver = velotrade
 
 -- Kerry adds BOC as an Observer
-  registerResource <- submit kerry do
-    exerciseCmd registerResource AddRegisterObserver with
+  publishResource <- submit kerry do
+    exerciseCmd publishResource AddPublishObserver with
       newObserver = boc
 
 -- Kerry removes BOC as an Observer
-  registerResource <- submit kerry do
-    exerciseCmd registerResource DelRegisterObserver with
+  publishResource <- submit kerry do
+    exerciseCmd publishResource DelPublishObserver with
       delObserver = boc
 
 -- Kerry adds BOC as an Observer Again
-  registerResource <- submit kerry do
-    exerciseCmd registerResource AddRegisterObserver with
+  publishResource <- submit kerry do
+    exerciseCmd publishResource AddPublishObserver with
       newObserver = boc
 
 -- BOC requests access to the resource from owner (Kerry)
-  Some register <- queryContractId boc registerResource
+  Some publish <- queryContractId boc publishResource
   accessProposal <- submit boc do
     createCmd AccessProposal with
       access = Access with
         issuer = boc
         owner = kerry
-        register = key register
+        publish = key publish
         observers = []
 
 {- Questions: 
