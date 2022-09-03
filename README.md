@@ -1,10 +1,6 @@
 DAML Version of the eCOM Registry to allow Resource Issuers (Publishers) to nominate Resource Owners, and for Owners to grant Visibility (Observer) to other parties who
 can in-turn request "Access" from the Owner to download the Resource
 
-Author: Bryce Macdonald
-
-Version: 1.0
-
 The eCOM Registry is composed of to main components, the "Private Registry" (PR) and the "Shared Registry" (SR).
 
 The PR is deployed on-premise and is used by organisations to "Register" Resources (Documents, URLs, Messages, Events) to a Blockchain along with the Hash of the Resource (for data integrity), metadata which describes the Resource and signed by the User and Organisation that holds the Resource.
