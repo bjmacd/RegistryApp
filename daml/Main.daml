@@ -9,7 +9,7 @@
 
 {- Questions: 
   The eCOM Registry allows "Publishers" to Publish a Resource as Public or Private.
-  This Module is for Private publishing.  How to make a Publish Contract public?
+  This Module is for Private publishing.  How to make a Publish Contract public? (Broadcast example?)
 -} 
 module Main where
 
