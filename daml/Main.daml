@@ -88,6 +88,8 @@ template Access
     observers : [Party]
   where
     signatory requester, owner
+    observer observers
+    ensure (unique observers)
 
     choice Transfer : AccessId
       with
@@ -166,32 +168,32 @@ setup = script do
       newObserver = velotrade
 
 -- Kerry adds Velotrade as an Observer
-  publishResource <- submit kerry do
+  addVelotrade <- submit kerry do
     exerciseCmd publishResource AddPublishObserver with
       newObserver = velotrade
 
 -- Kerry can not add Velotrade as an Observer if the are already added
   submitMustFail kerry do
-    exerciseCmd publishResource AddPublishObserver with
+    exerciseCmd addVelotrade AddPublishObserver with
       newObserver = velotrade
 
 -- Kerry adds BOC as an Observer
-  publishResource <- submit kerry do
-    exerciseCmd publishResource AddPublishObserver with
+  addBoc <- submit kerry do
+    exerciseCmd addVelotrade AddPublishObserver with
       newObserver = boc
 
 -- Kerry removes BOC as an Observer
-  publishResource <- submit kerry do
-    exerciseCmd publishResource DelPublishObserver with
+  removeBoc <- submit kerry do
+    exerciseCmd addBoc DelPublishObserver with
       delObserver = boc
 
 -- Kerry adds BOC as an Observer Again
-  publishResource <- submit kerry do
-    exerciseCmd publishResource AddPublishObserver with
+  addBoc2 <- submit kerry do
+    exerciseCmd removeBoc AddPublishObserver with
       newObserver = boc
 
 -- BOC requests access to the resource from owner (Kerry)
-  Some publish <- queryContractId boc publishResource
+  Some publish <- queryContractId boc addBoc2
   accessProposal <- submit boc do
     createCmd AccessProposal with
       access = Access with
@@ -227,6 +229,20 @@ setup = script do
   How would we record BOC Canceling the Access Proposal?
 -}
 
+{- Questions: 
+  After the Resource Owner (Kerry) has accepted the Access Proposal
+  how do we give visibility to the resource issuer (Oneport) so
+  they know that BOC has been given access?
+-}
+
+-- Option 1: Kerry adds Oneport as an Observer to the Resource Access
+-- so they know BOC has been granted access
+  submit kerry do
+      exerciseCmd accessResource AddAccessObserver with
+        newObserver = oneport
+
+{- Option 2:
+
 -- Kerry Transfers the Access to BOC
   transferResource <- submit kerry do
       exerciseCmd accessResource Transfer with
@@ -237,10 +253,6 @@ setup = script do
       exerciseCmd transferResource AddAccessObserver with
         newObserver = oneport
 
-{- Questions: 
-  After the Resource Owner (Kerry) has accepted the Access Proposal
-  how do we give visibility to the resource issuer (Oneport) so
-  they know that BOC has been given access?
 -}
 
 -- END_OF_MODULE
